@@ -11,10 +11,11 @@ class NBAPlayer:
         }
         self.benchmarks = {
             'points': [15, 20, 25, 30],
-            'rebounds': [5, 7, 10, 12],
-            'assists': [5, 7, 10, 12],
+            'rebounds': [4, 6, 8, 10, 12],
+            'assists': [4, 6, 8, 10, 12],
             'three_pointers_made': [2, 3, 4, 5]
         }
+
     def add_game_stats(self, points, rebounds, assists, three_pointers_made):
         self.games['points'].append(points)
         self.games['rebounds'].append(rebounds)

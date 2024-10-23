@@ -47,8 +47,8 @@ def getTeamsPlayingToday():
         print(e)
 
 
-def espnScrape(player, tracker):
-    scrape_link = 'https://www.espn.com/nba/player/gamelog/_/id/' + player
+def espnScraper(playerLink, tracker):
+    scrape_link = 'https://www.espn.com/nba/player/gamelog/_/id/' + playerLink
     try:
         page = requests.get(scrape_link, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -56,6 +56,7 @@ def espnScrape(player, tracker):
             "Connection": "close"
         })
         tracker.add_request()
+        howManyGames: int = 5
 
         if page.status_code == 200:
             soup = BeautifulSoup(page.content, "html.parser")
@@ -63,12 +64,15 @@ def espnScrape(player, tracker):
             teamItem = teamDiv.find('a', class_="AnchorLink")
             teamName = teamItem.text
 
-            if teamName:
-                playerData.append(teamName)
-            else:
+            if not teamName:
                 teamName = "No Team Name data"
 
+            playerName = string.capwords(str(playerLink.strip().split('/', 1)[1].replace('-', ' ')))
+
             injuredStatus = soup.find("span", class_="TextStatus").get_text()
+
+            nbaPlayer = NBAPlayer.NBAPlayer(playerName, teamName, injuredStatus)
+
             print(playerName + ": " + injuredStatus)
 
             monthLogs = soup.find_all("table", class_="Table Table--align-right")
@@ -77,22 +81,23 @@ def espnScrape(player, tracker):
                 gameLogs = monthLog.tbody.find_all("tr", class_=["bwb-0 Table__TR Table__TR--sm Table__even",
                                                                  "filled bwb-0 Table__TR Table__TR--sm Table__even"])
 
-                #"Table__TR Table__TR--sm Table__even", "filled Table__TR Table__TR--sm Table__even"
-
                 for gameLog in gameLogs:
                     if gameLog:
-                        if (len(points) < howManyGames):
+                        gameCounter = len(nbaPlayer.games['points'])
+                        if gameCounter < howManyGames:
                             statBoxes = gameLog.find_all("td")
-                            points.append(statBoxes[16].text.strip())
-                            rebounds.append(statBoxes[10].text.strip())
-                            assist.append(statBoxes[11].text.strip())
-                            threesMade.append(statBoxes[6].text.strip().split('-', 1)[0])
+                            nbaPlayer.add_game_stats(int(statBoxes[16].text.strip()),
+                                                     int(statBoxes[10].text.strip()),
+                                                     int(statBoxes[11].text.strip()),
+                                                     int(statBoxes[6].text.strip().split('-', 1)[0]))
                     else:
-                        points.append("No point data")
-                        rebounds.append("No rebound data")
-                        assist.append("No assist data")
-                        threesMade.append("No threes made data")
-                        page.close()
+                        nbaPlayer.add_game_stats("No point data",
+                                                 "No rebound data",
+                                                 "No assist data",
+                                                 "No 3PT data")
+
+            page.close()
+            return nbaPlayer
         else:
             print(page.status_code)
             page.close()
@@ -100,12 +105,14 @@ def espnScrape(player, tracker):
     except Exception as e:
         print(e)
 
+
 def write_to_excel(fileData, fileName):
     dataColumns = [
-        "Player", "Team", "15+ Points", "20+ Points", "25+ Points", "30+ Points",
-        "4+ Assist", "6+ Assist", "8+ Assist", "10+ Assist",
-        "4+ Reb", "6+ Reb", "8+ Reb", "10+ Reb",
-        "2+ 3PM", "3+ 3PM"
+        "Player", "Team",
+        "15+ Points", "20+ Points", "25+ Points", "30+ Points",
+        "4+ Assist", "6+ Assist", "8+ Assist", "10+ Assist", "12+ Assist",
+        "4+ Reb", "6+ Reb", "8+ Reb", "10+ Reb", "12+ Reb",
+        "2+ 3PM", "3+ 3PM", "4+ 3PM", "5+ 3PM"
     ]
 
     df = pd.DataFrame(fileData, columns=dataColumns)
@@ -113,10 +120,10 @@ def write_to_excel(fileData, fileName):
     with (pd.ExcelWriter(fileName) as writer):
         df.to_excel(writer, sheet_name='espnPlayerData', index=False)
 
-    formatt_excel(fileName)
+    format_excel(fileName)
 
 
-def formatt_excel(fileName):
+def format_excel(fileName):
     # formattedfileName = './DataSheets/ESPN_PlayerData_' + d1 + '_FORMATTED.xlsx'
     workbook = load_workbook(fileName)
     sheet = workbook.active
@@ -140,12 +147,6 @@ def formatt_excel(fileName):
     if last_row < 2:
         print("Not enough rows for conditional formatting.")
     else:
-        formatting_range = f'C2:P{last_row}'
-        color_scale = ColorScaleRule(start_type='num', start_value='100', start_color="63BE7B",
-                                     mid_type='num', mid_value='50', mid_color="FFEB84",
-                                     end_type='num', end_value='0', end_color="F8696B")
-        output_sheet.conditional_formatting.add(formatting_range, color_scale)
-
         for column in output_sheet.columns:
             max_length = 0
             column = [cell for cell in column]
@@ -158,11 +159,19 @@ def formatt_excel(fileName):
             adjusted_width = (max_length + 2)
             output_sheet.column_dimensions[get_column_letter(column[0].column)].width = adjusted_width
 
+        formatting_range = f'C2:T{last_row}'
+        color_scale = ColorScaleRule(start_type='percentile', start_value='0', start_color="F8696B",
+                                     mid_type='percentile', mid_value='50', mid_color="FFEB84",
+                                     end_type='percentile', end_value='100', end_color="63BE7B")
+
+        output_sheet.conditional_formatting.add(formatting_range, color_scale)
+
     # Save the new workbook
     output_workbook.save(fileName)
 
 
-ESPNPlayers = [
+def main():
+    ESPNPlayers = [
         # Atlanta
         # '4277905/trae-young', '3907497/dejounte-murray', '3037789/bogdan-bogdanovic', '4701230/jalen-johnson'
         #   '4065732/deandre-hunter', '4397136/saddiq-bey', '3102529/clint-capela', '4431680/onyeka-okongwu',
@@ -180,7 +189,9 @@ ESPNPlayers = [
         # '4249/gordon-hayward', '4278078/pj-washington',
         #
         # # Chicago Bulls
-        # '3978/demar-derozan', '3064440/zach-lavine', '4395651/coby-white', '6478/nikola-vucevic', '2991350/alex-caruso',
+        # '3978/demar-derozan',
+        '3064440/zach-lavine'
+        # '4395651/coby-white', '6478/nikola-vucevic', '2991350/alex-caruso',
         # '4431687/patrick-williams', '4397002/ayo-dosunmu', '6585/andre-drummond',
         #
         # # Cleveland Cavaliers
@@ -188,8 +199,7 @@ ESPNPlayers = [
         # '4432158/evan-mobley', '2991043/caris-levert', '4066328/jarrett-allen', '4065778/max-strus',
         #
         # # Dallas Mavericks
-        '3945274/luka-doncic', '6442/kyrie-irving'
-        # , '2528210/tim-hardaway-jr', '3936099/derrick-jones-jr'
+        # '3945274/luka-doncic', '6442/kyrie-irving', '2528210/tim-hardaway-jr', '3936099/derrick-jones-jr'
         # '3102528/dante-exum','4683688/dereck-lively-ii', '4066218/grant-williams', '4432811/josh-green',
         #
         # # Denver Nuggets
@@ -291,51 +301,50 @@ ESPNPlayers = [
         # '3134907/kyle-kuzma', '4277956/jordan-poole', '3135046/tyus-jones',
         # '4683021/deni-avdija', '5104155/bilal-coulibaly', '4278049/daniel-gafford',
         # '4277848/marvin-bagley-iii', '4280151/corey-kispert', '3064447/delon-wright'
+
     ]
 
-tracker = RequestTracker.RequestTracker()
+    tracker = RequestTracker.RequestTracker()
 
-howManyGames: int = 5
-fileData = []
-points = []
-rebounds = []
-assist = []
-threesMade = []
-playerData = []
-playerName = ''
+    fileData = []
+    playerData = []
+    playerName = ''
 
-teamsPlaying = getTeamsPlayingToday()
-d1 = datetime.datetime.now().strftime('%x').replace('/', '.')
-fileName = './DataSheets/ESPN_PlayerData_' + d1 + '.xlsx'
+    teamsPlaying = getTeamsPlayingToday()
+    d1 = datetime.datetime.now().strftime('%x').replace('/', '.')
+    fileName = './DataSheets/ESPN_PlayerData_' + d1 + '.xlsx'
+    print('Processing...........')
+    if ESPNPlayers:
+        for player in ESPNPlayers:
+            # parse players name from link
+            playerData = []
 
-global teamName
-if ESPNPlayers:
-    for player in ESPNPlayers:
-        # parse players name from link
-        playerName = str(player.strip().split('/', 1)[1].replace('-', ' '))
-        playerName = string.capwords(playerName)
+            player = espnScraper(player, tracker)
+            print(f"Requests in the last minute: {tracker.get_requests_per_minute()}")
+            xxx = player.team.split(" ", 1)[0]
 
-        points = []
-        rebounds = []
-        assist = []
-        threesMade = []
+            if (player.status == 'Active') and (player.team.split(" ", 1)[0] in teamsPlaying):
+                allBenchmarks = player.get_all_benchmarks()
+                # player.print_benchmarks()
+                playerData.append(player.name)
+                playerData.append(player.team)
 
-        teamName = ''
-        # scrap ProBallers for data
-        playerData = [playerName]
-        print('Processing ' + playerName + "...........")
+                for stat, benchmarks in allBenchmarks.items():
+                    for threshold, frequency in benchmarks.items():
+                        playerData.append(frequency)
 
-        # espnScrape(player, tracker)
-        # print('After:' + playerName)
-        print(f"Requests in the last minute: {tracker.get_requests_per_minute()}")
-        time.sleep(7)
+                time.sleep(7)
 
-        # Add data to CSV file
-        fileData.append(playerData)
+                # Add data to CSV file
+                fileData.append(playerData)
 
-    if fileData:
-        write_to_excel(fileData, fileName)
-        print("File saved to " + fileName)
+        if fileData:
+            write_to_excel(fileData, fileName)
+            print("File saved to " + fileName)
 
-    else:
-        print("Issue with fileData. Cannot write to Excel")
+        else:
+            print("Issue with fileData. Cannot write to Excel")
+
+
+if __name__ == "__main__":
+    main()
