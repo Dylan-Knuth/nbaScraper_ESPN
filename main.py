@@ -6,9 +6,12 @@ import string
 import time
 import NBAPlayer
 import RequestTracker
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill
+from openpyxl.formatting.rule import ColorScaleRule
 
 def getTeamsPlayingToday():
-    scrape_link ='https://www.espn.com/nba/schedule'
+    scrape_link = 'https://www.espn.com/nba/schedule'
     try:
         page = requests.get(scrape_link, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -20,7 +23,7 @@ def getTeamsPlayingToday():
         if page.status_code == 200:
             soup = BeautifulSoup(page.content, "html.parser")
 
-            fullScheduleCard = soup.find("div", class_ ="Wrapper Card__Content overflow-visible")
+            fullScheduleCard = soup.find("div", class_="Wrapper Card__Content overflow-visible")
             dateDivs = fullScheduleCard.find_all("div", class_="Table__Title")
             todaysGames = ""
             for date in dateDivs:
@@ -70,8 +73,11 @@ def espnScrape(player, tracker):
             monthLogs = soup.find_all("table", class_="Table Table--align-right")
 
             for monthLog in monthLogs:
-                gameLogs = monthLog.tbody.find_all("tr", class_=["Table__TR Table__TR--sm Table__even",
-                                                                 "filled Table__TR Table__TR--sm Table__even"])
+                gameLogs = monthLog.tbody.find_all("tr", class_=[ "bwb-0 Table__TR Table__TR--sm Table__even",
+                                                                  "filled bwb-0 Table__TR Table__TR--sm Table__even"])
+
+                #"Table__TR Table__TR--sm Table__even", "filled Table__TR Table__TR--sm Table__even"
+
                 for gameLog in gameLogs:
                     if gameLog:
                         if (len(points) < howManyGames):
@@ -92,6 +98,7 @@ def espnScrape(player, tracker):
 
     except Exception as e:
         print(e)
+
 
 def how_many_points(array):
     onefive_or_more = 0
@@ -116,6 +123,7 @@ def how_many_points(array):
     playerData.append((twofive_or_more / howManyGames) * 100)
     playerData.append((threezero_or_more / howManyGames) * 100)
 
+
 def how_many_assists_or_rebounds(array):
     four_or_more = 0
     six_or_more = 0
@@ -138,6 +146,7 @@ def how_many_assists_or_rebounds(array):
     playerData.append(int((eight_or_more / howManyGames) * 100))
     playerData.append(int((ten_or_more / howManyGames) * 100))
 
+
 def how_many_threes(array):
     two_or_more = 0
     three_or_more = 0
@@ -152,10 +161,62 @@ def how_many_threes(array):
     playerData.append(int((two_or_more / howManyGames) * 100))
     playerData.append(int((three_or_more / howManyGames) * 100))
 
+
+def write_to_excel(fileData):
+    dataColumns = [
+        "Player", "Team", "15+ Points", "20+ Points", "25+ Points", "30+ Points",
+        "4+ Assist", "6+ Assist", "8+ Assist", "10+ Assist",
+        "4+ Reb", "6+ Reb", "8+ Reb", "10+ Reb",
+        "2+ 3PM", "3+ 3PM"
+    ]
+
+    d1 = datetime.datetime.now().strftime('%x').replace('/', '.')
+    fileName = 'C:/Users/Dylan/Desktop/ESPN_PlayerData ' + d1 + '.xlsx'
+
+    df = pd.DataFrame(fileData, columns=dataColumns)
+    with pd.ExcelWriter(fileName) as writer:
+        df.to_excel(writer, index=False, )
+        #formatt_excel(fileName)
+
+def formatt_excel(fileName):
+    formattedfileName = 'C:/Users/Dylan/Desktop/ESPN_PlayerData ' + d1 + '_FORMATTED.xlsx'
+    workbook = load_workbook(fileName)
+    sheet = workbook.active
+
+    # Read the data from the sheet
+    data = []
+    for row in sheet.iter_rows(values_only=True):
+        data.append(row)
+
+    # Create a new workbook for output
+    output_workbook = Workbook()
+    output_sheet = output_workbook.active
+
+    # Write the data to the new sheet
+    for row in data:
+        output_sheet.append(row)
+
+    # Determine the range for conditional formatting
+    last_row = output_sheet.max_row
+
+    if last_row < 2:
+        print("Not enough rows for conditional formatting.")
+    else:
+        formatting_range = f'C2:P{last_row}'
+        color_scale = ColorScaleRule(start_type='num', start_value='100', start_color="63BE7B",
+                                     mid_type='num', mid_value='50', mid_color="FFEB84",
+                                     end_type='num', end_value='0', end_color="F8696B")
+        output_sheet.conditional_formatting.add(formatting_range, color_scale)
+
+    # Save the new workbook
+    output_workbook.save(formattedfileName)
+    print("File saved to " + formattedfileName)
+
+
 ESPNPlayers = [
     # Atlanta
-    # '4277905/trae-young', '3907497/dejounte-murray', '3037789/bogdan-bogdanovic', '4701230/jalen-johnson',
- #   '4065732/deandre-hunter', '4397136/saddiq-bey', '3102529/clint-capela', '4431680/onyeka-okongwu',
+    # '4277905/trae-young', '3907497/dejounte-murray', '3037789/bogdan-bogdanovic', '4701230/jalen-johnson'
+    #   '4065732/deandre-hunter', '4397136/saddiq-bey', '3102529/clint-capela', '4431680/onyeka-okongwu',
 
     # # Boston
     # '4065648/jayson-tatum', '3917376/jaylen-brown', '3102531/kristaps-porzingis',
@@ -178,7 +239,7 @@ ESPNPlayers = [
     # '4432158/evan-mobley', '2991043/caris-levert', '4066328/jarrett-allen', '4065778/max-strus',
     #
     # # Dallas Mavericks
-     '3945274/luka-doncic', '6442/kyrie-irving', '2528210/tim-hardaway-jr', '3936099/derrick-jones-jr'
+    '3945274/luka-doncic', '6442/kyrie-irving', '2528210/tim-hardaway-jr', '3936099/derrick-jones-jr'
     # '3102528/dante-exum','4683688/dereck-lively-ii', '4066218/grant-williams', '4432811/josh-green',
     #
     # # Denver Nuggets
@@ -283,17 +344,7 @@ ESPNPlayers = [
 
 ]
 
-dataCoulmns = [
-    "Player", "Team", "15+ Points", "20+ Points", "25+ Points", "30+ Points",
-    "4+ Assist", "6+ Assist", "8+ Assist", "10+ Assist",
-    "4+ Reb", "6+ Reb", "8+ Reb", "10+ Reb",
-    "2+ 3PM", "3+ 3PM"
-]
-
-d1 = datetime.datetime.now().strftime('%x').replace('/', '.')
-fileName = 'C:/Users/Dylan/Desktop/ESPN_PlayerData ' + d1 + '.xlsx'
-
-#tracker = RequestTracker()
+tracker = RequestTracker.RequestTracker()
 
 howManyGames: int = 5
 fileData = []
@@ -304,9 +355,10 @@ threesMade = []
 playerData = []
 playerName = ''
 
-teamsPlaying = getTeamsPlayingToday()
-
-
+# teamsPlaying = getTeamsPlayingToday()
+d1 = datetime.datetime.now().strftime('%x').replace('/', '.')
+fileName = 'C:/Users/Dylan/Desktop/ESPN_PlayerData ' + d1 + '.xlsx'
+formatt_excel(fileName)
 #
 # global teamName
 # if ESPNPlayers:
@@ -338,11 +390,8 @@ teamsPlaying = getTeamsPlayingToday()
 #         # Add data to CSV file
 #         fileData.append(playerData)
 #
-#     df = pd.DataFrame(fileData, columns=dataCoulmns)
-#     with pd.ExcelWriter(fileName) as writer:
-#         df.to_excel(writer, index=False, )
+#     if fileData:
+#         write_to_excel(fileData)
 #
-#
-#
-#
-#
+#     else:
+#         print("Issue with fileData. Cannot write to Excel")

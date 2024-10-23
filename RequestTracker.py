@@ -1,3 +1,6 @@
+import time
+
+
 class RequestTracker:
     def __init__(self):
         self.requests = []
