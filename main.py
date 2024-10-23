@@ -7,8 +7,6 @@ import time
 import NBAPlayer
 import RequestTracker
 
-#https://www.espn.com/nba/schedule/_/date/20241022
-
 def getTeamsPlayingToday():
     scrape_link ='https://www.espn.com/nba/schedule'
     try:
@@ -18,19 +16,28 @@ def getTeamsPlayingToday():
         })
         # Format the date as "Day, Month Date, Year"
         today = datetime.date.today().strftime("%A, %B %d, %Y")
-
+        teamsPlaying = []
         if page.status_code == 200:
             soup = BeautifulSoup(page.content, "html.parser")
 
-            #class ="Table__Title", go buy date?? Format = Tuesday, October 22, 2024
             fullScheduleCard = soup.find("div", class_ ="Wrapper Card__Content overflow-visible")
-            todaysGames = (fullScheduleCard.find("div", text_=today)
+            dateDivs = fullScheduleCard.find_all("div", class_="Table__Title")
+            todaysGames = ""
+            for date in dateDivs:
+                if date.get_text(strip=True) == today:
+                    todaysGames = date.find_next("table")
+                    break
 
+            if todaysGames:
+                rows = todaysGames.find_all("tr", class_="Table__TR Table__TR--sm Table__even")
+                for row in rows:
+                    team_spans = row.find_all('span', class_='Table__Team')
+                    for span in team_spans:
+                        # Extract and append the text (team name) to the list
+                        teamsPlaying.append(span.get_text(strip=True))
 
-            #scrapedTeams = gameCards.find_all("span", class_="MatchupCardTeamName_teamName__9YaBA")
-            # for team in scrapedTeams:
-            #     print(team.text)
-            #     # todayTeams.append(team.text)
+            print("Got teams playing")
+            return teamsPlaying
 
     except Exception as e:
         print(e)
@@ -109,7 +116,6 @@ def how_many_points(array):
     playerData.append((twofive_or_more / howManyGames) * 100)
     playerData.append((threezero_or_more / howManyGames) * 100)
 
-
 def how_many_assists_or_rebounds(array):
     four_or_more = 0
     six_or_more = 0
@@ -132,7 +138,6 @@ def how_many_assists_or_rebounds(array):
     playerData.append(int((eight_or_more / howManyGames) * 100))
     playerData.append(int((ten_or_more / howManyGames) * 100))
 
-
 def how_many_threes(array):
     two_or_more = 0
     three_or_more = 0
@@ -146,7 +151,6 @@ def how_many_threes(array):
 
     playerData.append(int((two_or_more / howManyGames) * 100))
     playerData.append(int((three_or_more / howManyGames) * 100))
-
 
 ESPNPlayers = [
     # Atlanta
@@ -298,9 +302,9 @@ rebounds = []
 assist = []
 threesMade = []
 playerData = []
-playerName =''
+playerName = ''
 
-getTeamsPlayingToday()
+teamsPlaying = getTeamsPlayingToday()
 
 
 #
