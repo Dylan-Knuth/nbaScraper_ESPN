@@ -1,3 +1,8 @@
+
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -9,7 +14,8 @@ import RequestTracker
 from openpyxl import Workbook, load_workbook
 from openpyxl.formatting.rule import ColorScaleRule
 from openpyxl.utils import get_column_letter
-
+import PlayerStatEmail
+import smtplib
 
 def getTeamsPlayingToday():
     scrape_link = 'https://www.espn.com/nba/schedule'
@@ -169,6 +175,47 @@ def format_excel(fileName):
     # Save the new workbook
     output_workbook.save(fileName)
 
+def send_email(fileName):
+    # Set up email details
+    sender_email = "Player Stats"
+    sender_password = "your_email_password"
+    receiver_emails = ["recipient1@example.com", "recipient2@example.com", "recipient3@example.com"]
+    subject = "CSV File Attached"
+    body = "Please find the attached CSV file."
+
+    # SMTP server details (for Gmail)
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+
+    # CReate email
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = ", ".join(receiver_emails)
+    message["Subject"] = subject
+    message.attach(MIMEText(body, "plain"))
+
+    # attach File
+    filename = "formatted_output.xlsx"  # Use the name of your saved file
+    attachment = open(filename, "rb")
+
+    part = MIMEBase("application", "octet-stream")
+    part.set_payload(attachment.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", f"attachment; filename= {filename}")
+
+    message.attach(part)
+
+    # Send email
+
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(message)
+        print("Email sent successfully")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 def main():
     ESPNPlayers = [
@@ -310,41 +357,45 @@ def main():
     playerData = []
     playerName = ''
 
-    teamsPlaying = getTeamsPlayingToday()
+    # teamsPlaying = getTeamsPlayingToday()
     d1 = datetime.datetime.now().strftime('%x').replace('/', '.')
     fileName = './DataSheets/ESPN_PlayerData_' + d1 + '.xlsx'
-    print('Processing...........')
-    if ESPNPlayers:
-        for player in ESPNPlayers:
-            # parse players name from link
-            playerData = []
-
-            player = espnScraper(player, tracker)
-            print(f"Requests in the last minute: {tracker.get_requests_per_minute()}")
-            xxx = player.team.split(" ", 1)[0]
-
-            if (player.status == 'Active') and (player.team.split(" ", 1)[0] in teamsPlaying):
-                allBenchmarks = player.get_all_benchmarks()
-                # player.print_benchmarks()
-                playerData.append(player.name)
-                playerData.append(player.team)
-
-                for stat, benchmarks in allBenchmarks.items():
-                    for threshold, frequency in benchmarks.items():
-                        playerData.append(frequency)
-
-                time.sleep(7)
-
-                # Add data to CSV file
-                fileData.append(playerData)
-
-        if fileData:
-            write_to_excel(fileData, fileName)
-            print("File saved to " + fileName)
-
-        else:
-            print("Issue with fileData. Cannot write to Excel")
-
+    send_email(fileName)
+    # PlayerStatEmail.gmail_send_email_with_attachment(fileName)
+    #
+    # print('Processing...........')
+    # if ESPNPlayers:
+    #     for player in ESPNPlayers:
+    #         # parse players name from link
+    #         playerData = []
+    #
+    #         player = espnScraper(player, tracker)
+    #         print(f"Requests in the last minute: {tracker.get_requests_per_minute()}")
+    #         xxx = player.team.split(" ", 1)[0]
+    #
+    #         if (player.status == 'Active') and (player.team.split(" ", 1)[0] in teamsPlaying):
+    #             allBenchmarks = player.get_all_benchmarks()
+    #             # player.print_benchmarks()
+    #             playerData.append(player.name)
+    #             playerData.append(player.team)
+    #
+    #             for stat, benchmarks in allBenchmarks.items():
+    #                 for threshold, frequency in benchmarks.items():
+    #                     playerData.append(frequency)
+    #
+    #             time.sleep(7)
+    #
+    #             # Add data to CSV file
+    #             fileData.append(playerData)
+    #
+    #     if fileData:
+    #         write_to_excel(fileData, fileName)
+    #         print("File saved to " + fileName)
+    #         emailFile(fileName)
+    #
+    #     else:
+    #         print("Issue with fileData. Cannot write to Excel")
+    #
 
 if __name__ == "__main__":
     main()
