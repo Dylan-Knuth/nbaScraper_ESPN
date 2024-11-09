@@ -17,7 +17,6 @@ from googleapiclient.errors import HttpError
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
-
 def get_google_creds():
     """Shows basic usage of the Gmail API.
   Lists the user's Gmail labels.
@@ -40,6 +39,8 @@ def get_google_creds():
         # Save the credentials for the next run
         with open("token.json", "w") as token:
             token.write(creds.to_json())
+
+    return creds
 
 def send_player_trends_email(creds, attachment_filename):
     try:

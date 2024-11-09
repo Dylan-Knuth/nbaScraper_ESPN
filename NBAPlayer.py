@@ -1,7 +1,9 @@
 class NBAPlayer:
-    def __init__(self, name, team, status):
+    def __init__(self, name, teamName, teamCity, link, status):
         self.name = name
-        self.team = team
+        self.teamName = teamName
+        self.teamCity = teamCity
+        self.link = link
         self.status = status
         self.games = {
             'points': [],
