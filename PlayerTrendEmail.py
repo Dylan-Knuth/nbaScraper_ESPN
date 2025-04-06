@@ -1,21 +1,22 @@
-import os.path
-import mimetypes
 import base64
+import mimetypes
+import os.path
+from email import encoders
+from email.message import EmailMessage
 from email.mime.audio import MIMEAudio
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email import encoders
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from email.message import EmailMessage
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+
 
 def get_google_creds():
     """Shows basic usage of the Gmail API.
@@ -42,15 +43,17 @@ def get_google_creds():
 
     return creds
 
+
 def send_player_trends_email(creds, attachment_filename):
     try:
         service = build("gmail", "v1", credentials=creds)
         message = EmailMessage()
-
+        recipients = ["dylanknuth01@gmail.com"]
+        # recipients = ["dylanknuth01@gmail.com","josedamian33@gmail.com"]
         # Headers
-        message["To"] = "dylanknuth1337@gmail.com"
+        message["To"] = ", ".join(recipients)
         message["From"] = "playerstattrends@gmail.com"
-        message["Subject"] = "Player Trends for 10.24.2024"
+        message["Subject"] = "Player Trends"
 
         message.attach(build_file_part(attachment_filename))
 

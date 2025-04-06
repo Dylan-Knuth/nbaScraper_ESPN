@@ -1,27 +1,19 @@
-import requests
 import datetime
-import string
 import time
-import mysql.connector
 import pyodbc
+import ExcelFile
+import PlayerTrendEmail
+import NBAPlayer
+import RequestTracker
+import Scraper
+import pandas as pd
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-import pandas as pd
 
-from openpyxl import Workbook, load_workbook
-from openpyxl.formatting.rule import ColorScaleRule
-from openpyxl.utils import get_column_letter
-from pyarrow import null
-
-import ExcelFile
-import PlayerTrendEmail
-import NBAPlayer
-import RequestTracker
-import Scraper
 
 def get_NBA_Players():
     # Set up Selenium WebDriver (make sure to specify the path to your WebDriver)
@@ -75,22 +67,7 @@ def get_NBA_Players():
     # Close the driver
     driver.quit()
 
-    # scrape_link = 'https://www.espn.com/nba/stats/player/_/table/general/sort/avgMinutes/dir/desc/'
-    # try:
-    #     page = requests.get(scrape_link, headers={
-    #         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    #         "Accept": "*",
-    #         "Connection": "close"
-    #     })
-    #
-    #
-    #     if page.status_code == 200:
-    #         print("Yes")
-    #
-    # except Exception as e:
-    #     print(e)
 
-#
 def get_NBAPlayers_DB(teamsPlaying):
     cnxn = pyodbc.connect(r'Driver=SQL Server;Server=.\SQLEXPRESS;Database=espnScraper;Trusted_Connection=yes;')
     cursor = cnxn.cursor()
@@ -101,6 +78,7 @@ def get_NBAPlayers_DB(teamsPlaying):
     result_list = [list(row) for row in rows]
     cnxn.close()
     return result_list
+
 
 def main():
     tracker = RequestTracker.RequestTracker()
@@ -129,9 +107,11 @@ def main():
 
             player = nbaPlayer
             print(f"Requests in the last minute: {tracker.get_requests_per_minute()}")
+            if tracker.get_requests_per_minute() >= 17:
+                time.sleep(10)
             if player:
                 if len(player.games['points']) > 0:
-                    if player.status != 'Out':
+                    if player.status != 'OUT':
                         allBenchmarks = player.get_all_benchmarks()
                         # player.print_benchmarks()
                         playerData.append(player.name)
@@ -147,14 +127,16 @@ def main():
                     print(f"{player.name} has no stats. {player.status}")
             else:
                 print(f"Issue getting info for {espnPlayer}")
-            time.sleep(5)
+            time.sleep(3)
 
             # Add data to CSV file
     if fileData:
         ExcelFile.write_to_excel(fileData, fileName)
         print("File saved to " + fileName)
-        creds = PlayerTrendEmail.get_google_creds()
-        PlayerTrendEmail.send_player_trends_email(creds, fileName)
+        isEmail = input("Do you want to email the file?? /nEnter 'Y' or 'N'")
+        if isEmail.upper() == "Y":
+            creds = PlayerTrendEmail.get_google_creds()
+            PlayerTrendEmail.send_player_trends_email(creds, fileName)
 
     else:
         print("Issue with fileData. Cannot write to Excel")

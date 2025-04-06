@@ -108,7 +108,8 @@ def espnScraper(nbaPlayer, tracker):
                         for gameLog in gameLogs:
                             if gameLog:
                                 gameCounter = len(nbaPlayer.games['points'])
-                                if gameCounter < howManyGames or gameCounter < len(gameLogs):
+                                if gameCounter < howManyGames:
+                                    # or gameCounter < len(gameLogs):
                                     statBoxes = gameLog.find_all("td")
                                     nbaPlayer.add_game_stats(int(statBoxes[16].text.strip()),
                                                              int(statBoxes[10].text.strip()),
